@@ -11,6 +11,7 @@ const ROLE_OPTIONS = [
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [roleValue, setRoleValue] = useState("team_member");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,14 +62,24 @@ function Login() {
 
           <div className="field">
             <label className="field-label">Password</label>
-            <input
-              type="password"
-              className="field-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="field-row">
+              <input
+                type={showPassword ? "text" : "password"}
+                className="field-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowPassword((s) => !s)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            <div className="field-helper">Frontend-only demo: any email/password works.</div>
           </div>
 
           <div className="field">

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
@@ -11,3 +12,5 @@ class IdeaStatusHistory(Base):
     new_status = Column(String(20))
     changed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     changed_at = Column(DateTime, default=datetime.utcnow)
+
+    idea = relationship("Idea", back_populates="status_history")

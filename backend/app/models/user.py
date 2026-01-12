@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
@@ -12,3 +13,7 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     designation = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    role = relationship("Role", back_populates="users")
+    ideas = relationship("Idea", back_populates="user")
+    comments = relationship("Comment", back_populates="commenter")

@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
 import { getMyIdeas, updateMyIdea } from "../api/ideas";
-import { getEmail } from "../utils/auth";
+import { getEmail, getName } from "../utils/auth";
+
+const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "Submitted", label: "Submitted" },
+  { value: "In Review", label: "In Review" },
+  { value: "Approved", label: "Approved" },
+  { value: "Rejected", label: "Rejected" },
+];
 
 function MyIdeas() {
   const [ideas, setIdeas] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
 
   const email = getEmail();
+  const name = getName();
 
   const refresh = async () => {
     const data = await getMyIdeas(email);
@@ -22,6 +33,18 @@ function MyIdeas() {
     };
     fetchIdeas();
   }, []);
+
+  const filteredIdeas = ideas
+    .filter((idea) => {
+      if (statusFilter !== "all" && idea.status !== statusFilter) return false;
+      if (!query.trim()) return true;
+      const q = query.trim().toLowerCase();
+      return (
+        (idea.title || "").toLowerCase().includes(q) ||
+        (idea.description || "").toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
   const startEdit = (idea) => {
     setError("");
@@ -55,25 +78,49 @@ function MyIdeas() {
   return (
     <div className="card">
       <div className="card-header">
-        <h2 className="card-title">My ideas</h2>
-        <p className="card-subtitle">
-          All ideas you have submitted, with their current status.
-        </p>
+        <div className="page-title-row">
+          <div>
+            <h2 className="card-title">My ideas</h2>
+            <p className="card-subtitle">Ideas you submitted, with status and feedback.</p>
+          </div>
+          <div className="page-actions">
+            <div className="field" style={{ margin: 0 }}>
+              <label className="field-label">Search</label>
+              <input
+                className="field-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search my ideas…"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pill-row" style={{ marginBottom: 10 }}>
+        <div className="pill-group" role="tablist" aria-label="Filter my ideas by status">
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              className={`pill ${statusFilter === s.value ? "active" : ""}`}
+              onClick={() => setStatusFilter(s.value)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        <div className="pill-help">Showing {filteredIdeas.length} of {ideas.length}</div>
       </div>
 
       {ideas.length === 0 ? (
         <p className="field-helper">You haven&apos;t submitted any ideas yet.</p>
       ) : (
         <ul className="stack-sm" style={{ padding: 0, listStyle: "none" }}>
-          {ideas.map((idea) => (
+          {filteredIdeas.map((idea) => (
             <li
               key={idea.id}
-              style={{
-                padding: "12px 14px",
-                borderRadius: 16,
-                border: "1px solid #e5e7eb",
-                background: "#ffffff",
-              }}
+              className="idea-card"
             >
               {editingId === idea.id ? (
                 <div className="stack-sm" style={{ width: "100%" }}>
@@ -106,29 +153,29 @@ function MyIdeas() {
                 </div>
               ) : (
                 <div className="stack-sm" style={{ width: "100%" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{idea.title}</div>
+                  <div className="idea-title">
+                    {idea.title}
                     <span
-                      style={{
-                        fontSize: 12,
-                        padding: "3px 10px",
-                        borderRadius: 999,
-                        background: "#eef2ff",
-                        border: "1px solid #c7d2fe",
-                        color: "#3730a3",
-                        whiteSpace: "nowrap",
-                      }}
+                      className={`badge badge-${(idea.status || "").toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       {idea.status}
                     </span>
                   </div>
 
-                  <div className="field-helper" style={{ color: "#4b5563" }}>
-                    {idea.description}
+                  <div className="idea-meta">
+                    <span>
+                      Submitted by <strong>{name || email}</strong>
+                    </span>
+                    <span className="muted">•</span>
+                    <span className="muted">
+                      {idea.createdAt ? new Date(idea.createdAt).toLocaleString() : ""}
+                    </span>
                   </div>
 
+                  <div className="idea-desc">{idea.description}</div>
+
                   {Array.isArray(idea.comments) && idea.comments.length > 0 && (
-                    <div className="field-helper" style={{ color: "#6b7280" }}>
+                    <div className="field-helper">
                       Latest comment: {idea.comments[idea.comments.length - 1].text}
                     </div>
                   )}

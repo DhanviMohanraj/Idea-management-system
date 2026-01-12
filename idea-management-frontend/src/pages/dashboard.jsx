@@ -1,28 +1,65 @@
-import { useEffect, useMemo, useState } from "react";
-import { addIdeaComment, getAllIdeas, setIdeaStatus } from "../api/ideas";
+import { useEffect, useState } from "react";
+import {
+  addIdeaComment,
+  getAllIdeas,
+  getMetricsSummary,
+  seedDemoIdeas,
+  setIdeaStatus,
+} from "../api/ideas";
+import { getRole } from "../utils/auth";
+
+const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "Submitted", label: "Submitted" },
+  { value: "In Review", label: "In Review" },
+  { value: "Approved", label: "Approved" },
+  { value: "Rejected", label: "Rejected" },
+];
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "status", label: "Status" },
+];
+
+const fmt = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString();
+};
 
 function Dashboard() {
   const [ideas, setIdeas] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [commentDraft, setCommentDraft] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("newest");
   const [error, setError] = useState("");
 
   const refresh = async () => {
     const all = await getAllIdeas();
     setIdeas(all);
+    const m = await getMetricsSummary();
+    setMetrics(m);
   };
 
   useEffect(() => {
     refresh();
   }, []);
 
-  const stats = useMemo(() => {
-    const total = ideas.length;
-    const submitted = ideas.filter((i) => i.status === "Submitted").length;
-    const inReview = ideas.filter((i) => i.status === "In Review").length;
-    const approved = ideas.filter((i) => i.status === "Approved").length;
-    const rejected = ideas.filter((i) => i.status === "Rejected").length;
-    return { total, submitted, inReview, approved, rejected };
-  }, [ideas]);
+  const stats = metrics || {
+    total: 0,
+    open: 0,
+    inProgress: 0,
+    completed: 0,
+    approved: 0,
+    rejected: 0,
+    last7Days: [],
+    last4Weeks: [],
+    byWhom: [],
+  };
 
   const updateStatus = async (id, status) => {
     setError("");
@@ -40,7 +77,7 @@ function Dashboard() {
 
     setError("");
     try {
-      await addIdeaComment({ id, byRole: "team_lead", text });
+      await addIdeaComment({ id, byRole: getRole(), text });
       setCommentDraft((prev) => ({ ...prev, [id]: "" }));
       await refresh();
     } catch (e) {
@@ -48,105 +85,289 @@ function Dashboard() {
     }
   };
 
+  const filteredIdeas = ideas
+    .filter((idea) => {
+      if (statusFilter !== "all" && idea.status !== statusFilter) return false;
+      if (!query.trim()) return true;
+      const q = query.trim().toLowerCase();
+      return (
+        (idea.title || "").toLowerCase().includes(q) ||
+        (idea.description || "").toLowerCase().includes(q) ||
+        (idea.ownerName || "").toLowerCase().includes(q) ||
+        (idea.ownerEmail || "").toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (sort === "status") return (a.status || "").localeCompare(b.status || "");
+      const da = new Date(a.createdAt || 0).getTime();
+      const db = new Date(b.createdAt || 0).getTime();
+      return sort === "oldest" ? da - db : db - da;
+    });
+
   return (
-    <div className="card stack-md" style={{ maxWidth: 920 }}>
+    <div className="card stack-md" style={{ maxWidth: 1020 }}>
       <div className="card-header">
-        <h2 className="card-title">Team lead dashboard</h2>
-        <p className="card-subtitle">Review team ideas, add comments, and approve or reject.</p>
+        <div className="page-title-row">
+          <div>
+            <h2 className="card-title">Team lead dashboard</h2>
+            <p className="card-subtitle">Review ideas, add feedback, and set outcomes.</p>
+          </div>
+
+          <div className="page-actions">
+            <div className="field" style={{ margin: 0 }}>
+              <label className="field-label">Search</label>
+              <input
+                className="field-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search title, submitter, description…"
+              />
+            </div>
+
+            <div className="field" style={{ margin: 0, minWidth: 160 }}>
+              <label className="field-label">Sort</label>
+              <select className="field-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="field-row">
-        <div className="btn btn-secondary btn-full" style={{ cursor: "default" }}>
-          Total: {stats.total}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-label">Total ideas</div>
+          <div className="kpi-value">{stats.total}</div>
         </div>
-        <div className="btn btn-secondary btn-full" style={{ cursor: "default" }}>
-          Submitted: {stats.submitted}
+        <div className="kpi-card">
+          <div className="kpi-label">Open ideas</div>
+          <div className="kpi-value">{stats.open}</div>
+          <div className="kpi-help">Submitted (not yet in review)</div>
         </div>
-        <div className="btn btn-secondary btn-full" style={{ cursor: "default" }}>
-          In review: {stats.inReview}
+        <div className="kpi-card">
+          <div className="kpi-label">In progress</div>
+          <div className="kpi-value">{stats.inProgress}</div>
+          <div className="kpi-help">In Review</div>
         </div>
-        <div className="btn btn-secondary btn-full" style={{ cursor: "default" }}>
-          Approved: {stats.approved}
+        <div className="kpi-card">
+          <div className="kpi-label">Completed</div>
+          <div className="kpi-value">{stats.completed}</div>
+          <div className="kpi-help">Approved + Rejected</div>
         </div>
+      </div>
+
+      <div className="kpi-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+        <div className="kpi-card">
+          <div className="kpi-label">Ideas per day (last 7 days)</div>
+          <div className="mini-chart">
+            {stats.last7Days.map((d) => (
+              <div key={d.key} className="mini-bar" title={`${d.key}: ${d.count}`}>
+                <div
+                  className="mini-bar-fill"
+                  style={{ height: `${Math.max(6, d.count * 18)}px` }}
+                />
+                <div className="mini-bar-label">{d.key.slice(5)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-label">Ideas per week (last 4 weeks)</div>
+          <div className="mini-chart">
+            {stats.last4Weeks.map((w) => (
+              <div key={w.key} className="mini-bar" title={`Week of ${w.key}: ${w.count}`}>
+                <div
+                  className="mini-bar-fill"
+                  style={{ height: `${Math.max(6, w.count * 18)}px` }}
+                />
+                <div className="mini-bar-label">{w.key.slice(5)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="kpi-card">
+        <div className="kpi-label">Ideas by whom</div>
+        {stats.byWhom.length === 0 ? (
+          <div className="kpi-help">No ideas yet.</div>
+        ) : (
+          <div className="stack-sm">
+            {stats.byWhom.map((u) => (
+              <div
+                key={u.ownerEmail}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "10px 12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 14,
+                  background: "#ffffff",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700 }}>{u.ownerName || u.ownerEmail}</div>
+                  <div className="field-helper" style={{ color: "#6b7280" }}>
+                    {u.ownerName ? u.ownerEmail : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontWeight: 700 }}>{u.total}</div>
+                  <div className="field-helper" style={{ color: "#6b7280" }}>
+                    Open {u.open} • In progress {u.inProgress} • Completed {u.completed}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {ideas.length === 0 ? (
-        <p className="field-helper">No ideas submitted yet.</p>
-      ) : (
-        <div className="stack-sm">
-          {ideas.map((idea) => (
-            <div
-              key={idea.id}
-              style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 16,
-                padding: "14px",
-                background: "#ffffff",
+        <div className="empty-state">
+          <div className="empty-title">No ideas yet</div>
+          <div className="empty-subtitle">Seed demo ideas to preview analytics and moderation UI.</div>
+          <div className="field-row" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={async () => {
+                setError("");
+                try {
+                  await seedDemoIdeas();
+                  await refresh();
+                } catch (e) {
+                  setError(e?.message || "Could not seed demo ideas");
+                }
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>{idea.title}</div>
-                  <div className="field-helper" style={{ color: "#6b7280" }}>
-                    From: {idea.ownerName || "(no name)"} {idea.ownerEmail ? `(${idea.ownerEmail})` : ""}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: 12,
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                    background: "#eef2ff",
-                    border: "1px solid #c7d2fe",
-                    color: "#3730a3",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {idea.status}
-                </span>
-              </div>
-
-              <div className="field-helper" style={{ color: "#374151", marginTop: 6 }}>
-                {idea.description}
-              </div>
-
-              {Array.isArray(idea.comments) && idea.comments.length > 0 && (
-                <div className="field-helper" style={{ color: "#6b7280", marginTop: 6 }}>
-                  Comments: {idea.comments.map((c, idx) => (
-                    <span key={idx}>{idx ? " | " : ""}{c.text}</span>
-                  ))}
-                </div>
-              )}
-
-              <div className="field-row" style={{ marginTop: 10 }}>
-                <button type="button" className="btn btn-secondary btn-full" onClick={() => updateStatus(idea.id, "In Review")}>
-                  Mark In Review
-                </button>
-                <button type="button" className="btn btn-primary btn-full" onClick={() => updateStatus(idea.id, "Approved")}>
-                  Approve
-                </button>
-                <button type="button" className="btn btn-secondary btn-full" onClick={() => updateStatus(idea.id, "Rejected")}>
-                  Reject
-                </button>
-              </div>
-
-              <div className="field" style={{ marginTop: 10 }}>
-                <label className="field-label">Add comment</label>
-                <div className="field-row">
-                  <input
-                    className="field-input"
-                    value={commentDraft[idea.id] || ""}
-                    onChange={(e) => setCommentDraft((prev) => ({ ...prev, [idea.id]: e.target.value }))}
-                    placeholder="Write feedback for the team member"
-                  />
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => submitComment(idea.id)}>
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+              Seed demo ideas
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={refresh}>
+              Refresh
+            </button>
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="pill-row" style={{ marginTop: 2 }}>
+            <div className="pill-group" role="tablist" aria-label="Filter ideas by status">
+              {STATUS_FILTERS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className={`pill ${statusFilter === s.value ? "active" : ""}`}
+                  onClick={() => setStatusFilter(s.value)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="pill-help">Showing {filteredIdeas.length} of {ideas.length}</div>
+          </div>
+
+          <div className="stack-sm">
+            {filteredIdeas.map((idea) => {
+              const expanded = expandedId === idea.id;
+              const badgeKey = (idea.status || "").toLowerCase().replace(/\s+/g, "-");
+              return (
+                <div key={idea.id} className="idea-card">
+                  <div className="idea-card-top">
+                    <div className="idea-title">
+                      {idea.title}
+                      <span className={`badge badge-${badgeKey}`}>{idea.status}</span>
+                    </div>
+                    <div className="idea-meta">
+                      <span>
+                        Submitted by <strong>{idea.ownerName || idea.ownerEmail || "Unknown"}</strong>
+                        {idea.ownerName && idea.ownerEmail ? (
+                          <span className="muted"> ({idea.ownerEmail})</span>
+                        ) : null}
+                      </span>
+                      <span className="muted">•</span>
+                      <span className="muted">{fmt(idea.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <div className="idea-desc">{idea.description}</div>
+
+                  <div className="status-actions">
+                    <div className="status-label">Set status</div>
+                    <div className="pill-group" aria-label="Set idea status">
+                      {["Submitted", "In Review", "Approved", "Rejected"].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className={`pill ${idea.status === s ? "active" : ""}`}
+                          onClick={() => updateStatus(idea.id, s)}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="idea-divider" />
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setExpandedId(expanded ? null : idea.id)}
+                  >
+                    {expanded ? "Hide" : "Show"} comments ({Array.isArray(idea.comments) ? idea.comments.length : 0})
+                  </button>
+
+                  {expanded && (
+                    <div className="stack-sm" style={{ marginTop: 10 }}>
+                      {Array.isArray(idea.comments) && idea.comments.length > 0 ? (
+                        <div className="comment-list">
+                          {idea.comments.map((c, idx) => (
+                            <div key={idx} className="comment-item">
+                              <div className="comment-meta">
+                                <span className="badge badge-neutral">{c.byRole || "comment"}</span>
+                                <span className="muted">{fmt(c.createdAt)}</span>
+                              </div>
+                              <div className="comment-text">{c.text}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="field-helper">No comments yet.</div>
+                      )}
+
+                      <div className="field">
+                        <label className="field-label">Add comment</label>
+                        <div className="field-row">
+                          <input
+                            className="field-input"
+                            value={commentDraft[idea.id] || ""}
+                            onChange={(e) =>
+                              setCommentDraft((prev) => ({ ...prev, [idea.id]: e.target.value }))
+                            }
+                            placeholder="Write feedback for the submitter"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => submitComment(idea.id)}
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {error && (

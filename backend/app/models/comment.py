@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, Text, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
 
@@ -10,3 +11,6 @@ class Comment(Base):
     idea_id = Column(Integer, ForeignKey("ideas.id"), nullable=False)
     commented_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    idea = relationship("Idea", back_populates="comments")
+    commenter = relationship("User", back_populates="comments")

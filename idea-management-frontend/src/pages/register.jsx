@@ -11,6 +11,7 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [roleValue, setRoleValue] = useState("team_member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -66,14 +67,24 @@ function Register() {
 
           <div className="field">
             <label className="field-label">Password</label>
-            <input
-              type="password"
-              className="field-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a strong password"
-              required
-            />
+            <div className="field-row">
+              <input
+                type={showPassword ? "text" : "password"}
+                className="field-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a strong password"
+                required
+              />
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowPassword((s) => !s)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            <div className="field-helper">Password is stored only for UI in this demo.</div>
           </div>
 
           <div className="field">

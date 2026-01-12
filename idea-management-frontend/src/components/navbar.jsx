@@ -1,11 +1,16 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { isAuthenticated, getRole, isTeamLead, logout } from "../utils/auth";
+import { isAuthenticated, getRole, getName, logout } from "../utils/auth";
+import { getTheme, toggleTheme } from "../utils/theme";
 
 function Navbar() {
   const navigate = useNavigate();
   const authed = isAuthenticated();
   const role = getRole();
-  const lead = isTeamLead();
+  const lead = role === "team_lead";
+  const displayName = getName();
+
+  const [theme, setTheme] = useState(getTheme());
 
   const handleLogout = () => {
     logout();
@@ -34,6 +39,23 @@ function Navbar() {
 
           {authed && (
             <>
+              <div className="navbar-user">
+                <div className="navbar-user-name">{displayName || "Signed in"}</div>
+                <div className="navbar-user-role">{lead ? "Team lead" : "Team member"}</div>
+              </div>
+
+              <div className="toggle-row navbar-toggle">
+                <span className="toggle-label">Dark</span>
+                <label className="switch" aria-label="Toggle dark mode">
+                  <input
+                    type="checkbox"
+                    checked={theme === "dark"}
+                    onChange={() => setTheme(toggleTheme())}
+                  />
+                  <span className="slider" />
+                </label>
+              </div>
+
               {lead && (
                 <Link className="navbar-link" to="/dashboard">
                   Dashboard

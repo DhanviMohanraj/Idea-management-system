@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.routers import auth
 from app.routers import ideas
+from app.routers import comments
 from app.database import engine, Base
 
 # Import ALL models so SQLAlchemy knows them
@@ -36,14 +37,8 @@ app = FastAPI()
 # Allow frontend running on localhost to call this API
 app.add_middleware(
 	CORSMiddleware,
-	allow_origins=[
-		"http://localhost:5173",
-		"http://localhost:5174",
-		"http://localhost:5175",
-		"http://localhost:5176",
-		"http://localhost:5177",
-		"http://localhost:5178",  # current Vite dev server port
-	],
+	# Dev-friendly: Vite can move ports; allow localhost/127.0.0.1 on any port.
+	allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
 	allow_credentials=True,
 	allow_methods=["*"],
 	allow_headers=["*"],
@@ -55,4 +50,5 @@ seed_roles()
 
 app.include_router(auth.router)
 app.include_router(ideas.router)
+app.include_router(comments.router)
 

@@ -5,22 +5,27 @@ import { getEmail, getName } from "../utils/auth";
 function CreateIdea() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [success, setSuccess] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const ideaData = {
+    setSuccess("");
+    setSaving(true);
+
+    await createIdea({
       title,
       description,
       ownerEmail: getEmail(),
       ownerName: getName(),
-    };
-    const response = await createIdea(ideaData);
-
-    alert("Idea submitted successfully");
+    });
 
     setTitle("");
     setDescription("");
+
+    setSuccess("Idea submitted — your team lead will review it soon.");
+    setSaving(false);
   };
 
   return (
@@ -28,7 +33,7 @@ function CreateIdea() {
       <div className="card-header">
         <h2 className="card-title">Submit a new idea</h2>
         <p className="card-subtitle">
-          Share problems worth solving or improvements for your team.
+          Share improvements for your team. Submitting as <strong>{getName() || getEmail()}</strong>.
         </p>
       </div>
 
@@ -43,8 +48,10 @@ function CreateIdea() {
             placeholder="A short, clear summary"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            maxLength={80}
             required
           />
+          <div className="field-helper">{title.length}/80</div>
         </div>
 
         <div className="field">
@@ -57,12 +64,21 @@ function CreateIdea() {
             placeholder="What problem does this solve? What does success look like?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            maxLength={600}
             required
           />
+          <div className="field-helper">{description.length}/600</div>
         </div>
 
-        <button type="submit" className="btn btn-primary btn-full">
-          Submit idea
+        {success && (
+          <div className="empty-state" style={{ borderStyle: "solid" }}>
+            <div className="empty-title">Success</div>
+            <div className="empty-subtitle">{success}</div>
+          </div>
+        )}
+
+        <button type="submit" className="btn btn-primary btn-full" disabled={saving}>
+          {saving ? "Submitting…" : "Submit idea"}
         </button>
       </form>
     </div>
