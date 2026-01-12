@@ -19,7 +19,7 @@ from app.models.user import User
 from app.core.security import (
     get_password_hash,
     verify_password,
-    create_access_token
+    create_access_token,
 )
 router = APIRouter(prefix="/auth", tags=["Auth"])
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -94,10 +94,8 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid email or password"
         )
 
-    # 3️⃣ Create JWT token
-    access_token = create_access_token(
-        data={"sub": str(user.id)}
-    )
+    # 3️⃣ Create JWT token including user_id for downstream use
+    access_token = create_access_token(data={"user_id": user.id})
 
     return {
         "access_token": access_token,

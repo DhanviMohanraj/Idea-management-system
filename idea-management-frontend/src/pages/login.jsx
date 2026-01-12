@@ -1,46 +1,108 @@
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../api/auth";
-import { useNavigate } from "react-router-dom";
+import { setSession } from "../utils/auth";
 
-function login() {
+const ROLE_OPTIONS = [
+  { value: "team_member", label: "Team member" },
+  { value: "team_lead", label: "Team lead" },
+];
+
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [roleValue, setRoleValue] = useState("team_member");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const response = await loginUser(email, password);
-    localStorage.setItem("token", response.access_token);
-    navigate("/dashboard");
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await loginUser(email);
+      setSession({
+        token: response.access_token,
+        role: roleValue,
+        email,
+        name: response.user?.name || "",
+      });
+
+      navigate(roleValue === "team_lead" ? "/dashboard" : "/myideas");
+    } catch (err) {
+      setError("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h2>Login</h2>
+    <section className="auth-page">
+      <div className="card auth-card">
+        <div className="card-header">
+          <h2 className="card-title">Welcome back</h2>
+          <p className="card-subtitle">Sign in to continue</p>
+        </div>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <br /><br />
+        <form className="form" onSubmit={handleSubmit}>
+          <div className="field">
+            <label className="field-label">Email</label>
+            <input
+              type="email"
+              className="field-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <br /><br />
+          <div className="field">
+            <label className="field-label">Password</label>
+            <input
+              type="password"
+              className="field-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
 
-        <button type="submit">Login</button>
-      </form>
-    </div>
+          <div className="field">
+            <label className="field-label">Login as</label>
+            <select
+              className="field-select"
+              value={roleValue}
+              onChange={(e) => setRoleValue(e.target.value)}
+            >
+              {ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-full">
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+
+        {error && (
+          <div className="field-helper" style={{ color: "#b91c1c", marginTop: "8px" }}>
+            {error}
+          </div>
+        )}
+
+        <div className="card-footer">
+          New here? <Link to="/register">Create an account</Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
-export default login;
+export default Login;
