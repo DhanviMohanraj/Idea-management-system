@@ -134,18 +134,6 @@ Routing behavior:
 - Mark **In Review**, **Approve**, or **Reject**
 - Add comments (team members will see the latest feedback)
 
-## Reset Demo Data
-
-Because this demo uses `localStorage`, you can reset everything by clearing site data:
-
-- Chrome/Edge: DevTools → Application → Storage → Clear site data
-
-Or delete these keys in localStorage:
-
-- `ims_users`
-- `ims_ideas`
-- `token`, `role`, `email`, `name`
-
 ## Troubleshooting
 
 - **Port already in use**: Vite will automatically try the next port and print the URL.
