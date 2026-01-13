@@ -1,4 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 import {
   addIdeaComment,
   getAllIdeas,
@@ -7,6 +18,9 @@ import {
   setIdeaStatus,
 } from "../api/ideas";
 import { getRole } from "../utils/auth";
+import { buildIdeaTrendForecast } from "../utils/trendForecast";
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
 const STATUS_FILTERS = [
   { value: "all", label: "All" },
@@ -36,6 +50,8 @@ function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("newest");
+  const [trendWindow, setTrendWindow] = useState(30);
+  const [forecastDays, setForecastDays] = useState(7);
   const [error, setError] = useState("");
 
   const refresh = async () => {
@@ -103,6 +119,89 @@ function Dashboard() {
       const db = new Date(b.createdAt || 0).getTime();
       return sort === "oldest" ? da - db : db - da;
     });
+
+  const trend = useMemo(
+    () => buildIdeaTrendForecast(ideas, { daysBack: trendWindow, forecastDays }),
+    [ideas, trendWindow, forecastDays]
+  );
+
+  const trendLabels = [...trend.labels, ...trend.forecastLabels];
+  const datasets = [];
+
+  if (forecastDays > 0) {
+    // Interval band (shown only for forecast region)
+    datasets.push({
+      label: "Forecast low",
+      data: [...Array(trend.labels.length).fill(null), ...(trend.lower || [])],
+      borderColor: "rgba(245, 158, 11, 0)",
+      backgroundColor: "rgba(245, 158, 11, 0.10)",
+      pointRadius: 0,
+      tension: 0.25,
+    });
+    datasets.push({
+      label: "Forecast high",
+      data: [...Array(trend.labels.length).fill(null), ...(trend.upper || [])],
+      borderColor: "rgba(245, 158, 11, 0)",
+      backgroundColor: "rgba(245, 158, 11, 0.10)",
+      pointRadius: 0,
+      tension: 0.25,
+      fill: "-1",
+    });
+  }
+
+  datasets.push({
+    label: "Actual",
+    data: [...trend.actual, ...Array(trend.forecastLabels.length).fill(null)],
+    borderColor: "rgba(79, 70, 229, 0.95)",
+    backgroundColor: "rgba(79, 70, 229, 0.15)",
+    fill: true,
+    tension: 0.25,
+    pointRadius: 2,
+  });
+
+  if (forecastDays > 0) {
+    datasets.push({
+      label: `Forecast (+${forecastDays}d)`,
+      data: [...Array(trend.labels.length).fill(null), ...trend.forecast],
+      borderColor: "rgba(245, 158, 11, 0.95)",
+      backgroundColor: "rgba(245, 158, 11, 0.00)",
+      borderDash: [6, 6],
+      fill: false,
+      tension: 0.25,
+      pointRadius: 2,
+    });
+  }
+
+  const trendData = {
+    labels: trendLabels.map((k) => k.slice(5)),
+    datasets,
+  };
+
+  const trendOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: true, position: "bottom" },
+      tooltip: { enabled: true },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return value;
+            return Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : n.toFixed(1);
+          },
+        },
+        grid: { color: "rgba(148, 163, 184, 0.25)" },
+      },
+      x: {
+        grid: { display: false },
+      },
+    },
+  };
 
   return (
     <div className="card stack-md" style={{ maxWidth: 1020 }}>
@@ -189,6 +288,51 @@ function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="kpi-card">
+        <div className="kpi-row">
+          <div>
+            <div className="kpi-label">Trend & forecast (ML)</div>
+            <div className="kpi-help">
+              Bayesian forecast on daily submissions. Model: {trend.model?.method || "-"}
+            </div>
+          </div>
+
+          <div className="trend-controls">
+            <div className="pill-group" aria-label="Trend window">
+              {[14, 30, 60].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`pill ${trendWindow === d ? "active" : ""}`}
+                  onClick={() => setTrendWindow(d)}
+                  title={`Show last ${d} days`}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+
+            <select
+              className="field-select"
+              value={forecastDays}
+              onChange={(e) => setForecastDays(Number(e.target.value))}
+              aria-label="Forecast horizon"
+              style={{ height: 38 }}
+            >
+              {[0, 7, 14].map((d) => (
+                <option key={d} value={d}>
+                  Forecast {d}d
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="chart-wrap">
+          <Line data={trendData} options={trendOptions} />
         </div>
       </div>
 

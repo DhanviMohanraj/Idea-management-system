@@ -495,6 +495,25 @@ a:hover {
   margin-top: 6px;
 }
 
+.kpi-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.trend-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chart-wrap {
+  height: 280px;
+  margin-top: 10px;
+}
+
 .mini-chart {
   display: flex;
   align-items: flex-end;

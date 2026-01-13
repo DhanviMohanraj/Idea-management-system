@@ -79,7 +79,6 @@ function Login() {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
-            <div className="field-helper">Frontend-only demo: any email/password works.</div>
           </div>
 
           <div className="field">
