@@ -36,6 +36,15 @@ const SORT_OPTIONS = [
   { value: "status", label: "Status" },
 ];
 
+const STATUS_SERIES_ORDER = ["Submitted", "In Review", "Approved", "Rejected"];
+
+const STATUS_SERIES_COLORS = {
+  Submitted: "rgba(59, 130, 246, 0.95)",
+  "In Review": "rgba(245, 158, 11, 0.95)",
+  Approved: "rgba(16, 185, 129, 0.95)",
+  Rejected: "rgba(239, 68, 68, 0.95)",
+};
+
 const fmt = (iso) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -177,6 +186,77 @@ function Dashboard() {
     datasets,
   };
 
+  const statusTrend = useMemo(() => {
+    const labels = trend.labels || [];
+    const seriesMap = new Map();
+    for (const status of STATUS_SERIES_ORDER) seriesMap.set(status, Array(labels.length).fill(0));
+
+    const labelIndex = new Map(labels.map((k, idx) => [k, idx]));
+    for (const idea of Array.isArray(ideas) ? ideas : []) {
+      const created = new Date(idea?.createdAt);
+      if (Number.isNaN(created.getTime())) continue;
+      const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, "0")}-${String(
+        created.getDate()
+      ).padStart(2, "0")}`;
+      const idx = labelIndex.get(key);
+      if (idx === undefined) continue;
+
+      const s = idea?.status || "Submitted";
+      if (!seriesMap.has(s)) seriesMap.set(s, Array(labels.length).fill(0));
+      const arr = seriesMap.get(s);
+      arr[idx] = (arr[idx] || 0) + 1;
+    }
+
+    const known = STATUS_SERIES_ORDER.filter((s) => seriesMap.has(s));
+    const extra = Array.from(seriesMap.keys())
+      .filter((s) => !STATUS_SERIES_ORDER.includes(s))
+      .sort((a, b) => String(a).localeCompare(String(b)));
+
+    const allStatuses = [...known, ...extra];
+    const datasets = allStatuses.map((s) => ({
+      label: s,
+      data: seriesMap.get(s) || [],
+      borderColor: STATUS_SERIES_COLORS[s] || "rgba(99, 102, 241, 0.75)",
+      backgroundColor: "rgba(99, 102, 241, 0.08)",
+      fill: false,
+      tension: 0.25,
+      pointRadius: 2,
+    }));
+
+    return { labels, datasets };
+  }, [ideas, trend.labels]);
+
+  const statusTrendData = {
+    labels: (statusTrend.labels || []).map((k) => k.slice(5)),
+    datasets: statusTrend.datasets || [],
+  };
+
+  const statusTrendOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: { display: true, position: "bottom" },
+      tooltip: { enabled: true },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return value;
+            return Math.abs(n - Math.round(n)) < 1e-9 ? String(Math.round(n)) : n.toFixed(1);
+          },
+        },
+        grid: { color: "rgba(148, 163, 184, 0.25)" },
+      },
+      x: {
+        grid: { display: false },
+      },
+    },
+  };
+
   const trendOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -295,9 +375,6 @@ function Dashboard() {
         <div className="kpi-row">
           <div>
             <div className="kpi-label">Trend & forecast (ML)</div>
-            <div className="kpi-help">
-              Bayesian forecast on daily submissions. Model: {trend.model?.method || "-"}
-            </div>
           </div>
 
           <div className="trend-controls">
@@ -333,6 +410,34 @@ function Dashboard() {
 
         <div className="chart-wrap">
           <Line data={trendData} options={trendOptions} />
+        </div>
+      </div>
+
+      <div className="kpi-card">
+        <div className="kpi-row">
+          <div>
+            <div className="kpi-label">Ideas by status over time</div>
+          </div>
+
+          <div className="trend-controls">
+            <div className="pill-group" aria-label="Trend window (status)">
+              {[14, 30, 60].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`pill ${trendWindow === d ? "active" : ""}`}
+                  onClick={() => setTrendWindow(d)}
+                  title={`Show last ${d} days`}
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="chart-wrap">
+          <Line data={statusTrendData} options={statusTrendOptions} />
         </div>
       </div>
 
