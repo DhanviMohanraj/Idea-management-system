@@ -1,8 +1,8 @@
 # Idea Management System (IdeaFlow)
 
-IdeaFlow is a simple internal idea management app where team members can submit improvement ideas and track their status, while team leads can review ideas, add comments, and approve/reject them.
+IdeaFlow is an internal idea management app where team members can submit improvement ideas and track their status, while team leads can review ideas, add comments, and approve/reject them.
 
-This workspace contains both a backend (FastAPI) and a frontend (React + Vite). **The current frontend is designed to work in “frontend-only mode”** using `localStorage` for data, so you can run and demo the full workflow without a database.
+This repository includes a React + Vite frontend and an optional FastAPI backend.
 
 ## Features
 
@@ -12,25 +12,32 @@ This workspace contains both a backend (FastAPI) and a frontend (React + Vite). 
 	- Create ideas
 	- View “My Ideas” with status
 	- Edit ideas until a final decision is made (approved/rejected)
-	- See latest feedback comment from the team lead
+	- View feedback comments from the team lead
 
 - **Team lead**
 	- View all ideas in the **Team Lead Dashboard**
 	- Mark ideas **In Review**
 	- **Approve** / **Reject** ideas
 	- Add comments (feedback)
+	- View analytics + trend forecast
 
-### Data storage (frontend-only)
+### Analytics
 
-- Users and ideas are stored in the browser using `localStorage`.
-- This makes the app easy to run locally without a backend.
+- KPIs for total/open/in-progress/completed
+- Recent activity mini-charts (daily/weekly)
+- Trend & forecast chart (ML-inspired forecasting on daily submissions)
+
+### Data storage
+
+- The app can store user and idea data in the browser using `localStorage` for quick setup.
+- A backend folder is included for database-backed storage when you want to connect it.
 
 ## Tech Stack
 
 - React (UI)
 - React Router (routing)
 - Vite (dev server + build)
-- LocalStorage (demo persistence)
+- Chart.js (trend chart)
 
 ## Project Structure
 
@@ -59,7 +66,7 @@ idea-management-frontend/src/
 		MyIdeas.jsx           # Team member idea list + edit
 ```
 
-## How to Run (Frontend-only mode)
+## How to Run
 
 ### Prerequisites
 
@@ -91,6 +98,12 @@ idea-management-frontend/src/
 	 - `http://localhost:5173/`
 	 - or `http://localhost:5174/`, `5175`, etc. (if ports are already in use)
 
+Tip (run from repo root without changing directories):
+
+```bash
+npm --prefix idea-management-frontend run dev
+```
+
 ## How to Use
 
 ### Register
@@ -103,7 +116,7 @@ idea-management-frontend/src/
 ### Login
 
 1. Click **Login**
-2. Enter any email/password (demo mode)
+2. Enter your email and password
 3. Choose **Login as** role
 
 Routing behavior:
@@ -121,23 +134,12 @@ Routing behavior:
 - Mark **In Review**, **Approve**, or **Reject**
 - Add comments (team members will see the latest feedback)
 
-## Reset Demo Data
-
-Because this demo uses `localStorage`, you can reset everything by clearing site data:
-
-- Chrome/Edge: DevTools → Application → Storage → Clear site data
-
-Or delete these keys in localStorage:
-
-- `ims_users`
-- `ims_ideas`
-- `token`, `role`, `email`, `name`
-
 ## Troubleshooting
 
 - **Port already in use**: Vite will automatically try the next port and print the URL.
+- **`npm error Missing script: "dev"`**: you ran `npm run dev` from the repository root. Run it inside `idea-management-frontend/` (or use `npm --prefix idea-management-frontend run dev`).
 - **Changes not showing**: hard refresh the browser or restart `npm run dev`.
 
-## Notes (Backend)
+## Backend (Optional)
 
-The `backend/` folder contains a FastAPI implementation intended for real database storage. The current frontend is configured for a frontend-only demo flow. If you later want full DB-backed auth + persistence, we can wire the frontend back to the API.
+The `backend/` folder contains a FastAPI implementation intended for database-backed storage.
