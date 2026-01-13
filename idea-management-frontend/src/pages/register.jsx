@@ -84,7 +84,6 @@ function Register() {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
-            <div className="field-helper">Password is stored only for UI in this demo.</div>
           </div>
 
           <div className="field">
